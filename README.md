@@ -1,5 +1,35 @@
-## Requirements
+## Dependencies
 
 - editline
   - https://github.com/troglobit/editline
   - `sudo apt-get install libedit-dev`
+- gtest
+  - https://www.eriksmistad.no/getting-started-with-google-test-on-ubuntu/
+  - sudo apt-get install libgtest-dev
+    - This only gets the source code. Will still need to make and copy into
+      /usr/lib
+
+## Building
+
+```
+$ clang++ -std=c++14 -g -Werror -Wall -fno-rtti -ledit Prompt.cpp Lexer.cpp Parser.cpp Nodes.cpp
+```
+
+### Tests
+
+```
+$ clang++ -std=c++14 -Werror -Wall -fno-rtti TestLexer.cpp Lexer.cpp -pthread -lgtest
+$ clang++ -std=c++14 -Werror -Wall -fno-rtti TestParser.cpp Parser.cpp Lexer.cpp -pthread -lgtest
+```
+
+or
+
+```
+$ run_tests.sh
+```
+
+## Formatting
+
+```
+$ clang-format -style=Google -i *.cpp *.h
+```
