@@ -59,14 +59,54 @@ void ParseFailure::Dump(std::ostream &out) const {
   LANG_UNREACHABLE("should have exited before this");
 }
 
+std::unique_ptr<Node> Parser::Parse() { return ParseExpr(); }
+
 /**
- * expr : <bin_operand_expr> (<bin_op> <bin_operand_expr>)*
+ * mul_div_expr : <bin_operand_expr> (('*' | '/') <bin_operand_expr>)*
  */
-std::unique_ptr<Node> Parser::Parse() {
+std::unique_ptr<Expr> Parser::ParseMulDivExpr() {
   Token tok;
   if (!PeekAndDiagnose(tok)) return nullptr;
 
-  std::unique_ptr<Node> result = ParseBinOperandExpr();
+  std::unique_ptr<Expr> result = ParseBinOperandExpr();
+  if (!result) return nullptr;
+
+  if (!PeekAndDiagnose(tok)) return nullptr;
+
+  while (tok.kind != TOK_END) {
+    BinOperatorKind binop;
+    switch (tok.kind) {
+      case TOK_MUL:
+        binop = BIN_MUL;
+        break;
+      case TOK_DIV:
+        binop = BIN_DIV;
+        break;
+      default:
+        return result;
+    }
+    ConsumePeekedToken();
+
+    std::unique_ptr<Expr> RHS = ParseBinOperandExpr();
+    if (RHS)
+      result = std::make_unique<BinOperator>(std::move(result), std::move(RHS),
+                                             binop);
+    else
+      return nullptr;
+
+    if (!PeekAndDiagnose(tok)) return nullptr;
+  }
+  return result;
+}
+
+/**
+ * expr : <mul_div_expr> (('+' | '-') <mul_div_expr>)*
+ */
+std::unique_ptr<Expr> Parser::ParseExpr() {
+  Token tok;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+
+  std::unique_ptr<Expr> result = ParseMulDivExpr();
   if (!result) return nullptr;
 
   if (!PeekAndDiagnose(tok)) return nullptr;
@@ -80,18 +120,12 @@ std::unique_ptr<Node> Parser::Parse() {
       case TOK_MINUS:
         binop = BIN_SUB;
         break;
-      case TOK_MUL:
-        binop = BIN_MUL;
-        break;
-      case TOK_DIV:
-        binop = BIN_DIV;
-        break;
       default:
         return result;
     }
     ConsumePeekedToken();
 
-    std::unique_ptr<Node> RHS = ParseBinOperandExpr();
+    std::unique_ptr<Expr> RHS = ParseMulDivExpr();
     if (RHS)
       result = std::make_unique<BinOperator>(std::move(result), std::move(RHS),
                                              binop);
@@ -109,7 +143,7 @@ std::unique_ptr<Node> Parser::Parse() {
  * bin_operand_expr : <number>
  *                  | <paren_expr>
  */
-std::unique_ptr<Node> Parser::ParseBinOperandExpr() {
+std::unique_ptr<Expr> Parser::ParseBinOperandExpr() {
   Token tok;
   if (!PeekAndDiagnose(tok)) return nullptr;
 
@@ -136,7 +170,7 @@ std::unique_ptr<ParenExpr> Parser::ParseParenExpr() {
   assert(tok.kind == TOK_LPAR && "Expected opening parenthesis");
   ConsumePeekedToken();
 
-  std::unique_ptr<Node> inner = Parse();
+  std::unique_ptr<Expr> inner = ParseExpr();
   if (!inner) return nullptr;
 
   auto result = std::make_unique<ParenExpr>(std::move(inner));

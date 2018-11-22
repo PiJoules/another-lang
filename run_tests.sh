@@ -7,3 +7,6 @@ valgrind ./a.out
 
 clang++ -std=c++14 -Werror -Wall -fno-rtti TestParser.cpp Parser.cpp Lexer.cpp -pthread -lgtest
 valgrind ./a.out
+
+clang++ -std=c++14 -Werror -Wall -fno-rtti TestEval.cpp Parser.cpp Lexer.cpp Nodes.cpp -pthread -lgtest
+valgrind ./a.out

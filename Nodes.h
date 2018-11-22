@@ -4,6 +4,8 @@
 #include <memory>
 #include <ostream>
 
+#include "LangCommon.h"
+
 namespace lang {
 
 enum NodeKind { NODE_INT, NODE_BINOP, NODE_PAREN };
@@ -14,7 +16,12 @@ class Node {
   virtual NodeKind getKind() const = 0;
 };
 
-class IntLiteral : public Node {
+class Expr : public Node {};
+
+bool NodeIsExpr(NodeKind kind);
+bool NodeIsExpr(const Node &node);
+
+class IntLiteral : public Expr {
  public:
   IntLiteral(int64_t val) : val_(val) {}
 
@@ -29,31 +36,31 @@ enum BinOperatorKind { BIN_ADD, BIN_SUB, BIN_MUL, BIN_DIV };
 
 std::string BinOpKindToString(BinOperatorKind op);
 
-class BinOperator : public Node {
+class BinOperator : public Expr {
  public:
-  BinOperator(std::unique_ptr<Node> lhs, std::unique_ptr<Node> rhs,
+  BinOperator(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs,
               BinOperatorKind op)
       : lhs_(std::move(lhs)), rhs_(std::move(rhs)), op_(op) {}
 
   BinOperatorKind getOp() const { return op_; }
   NodeKind getKind() const override { return NODE_BINOP; }
-  const Node &getLHS() const { return *lhs_; }
-  const Node &getRHS() const { return *rhs_; }
+  const Expr &getLHS() const { return *lhs_; }
+  const Expr &getRHS() const { return *rhs_; }
 
  private:
-  std::unique_ptr<Node> lhs_, rhs_;
+  std::unique_ptr<Expr> lhs_, rhs_;
   BinOperatorKind op_;
 };
 
-class ParenExpr : public Node {
+class ParenExpr : public Expr {
  public:
-  ParenExpr(std::unique_ptr<Node> inner) : inner_(std::move(inner)) {}
+  ParenExpr(std::unique_ptr<Expr> inner) : inner_(std::move(inner)) {}
 
-  const Node &getInner() const { return *inner_; }
+  const Expr &getInner() const { return *inner_; }
   NodeKind getKind() const override { return NODE_PAREN; }
 
  private:
-  std::unique_ptr<Node> inner_;
+  std::unique_ptr<Expr> inner_;
 };
 
 class ASTDump {
@@ -76,6 +83,18 @@ class ASTDump {
 };
 
 std::string NodeToString(const Node &node);
+
+class ASTEval {
+ public:
+  int64_t EvalNumericExpr(const Expr &expr);
+  int64_t EvalNumericExpr(const Node &node);
+
+ private:
+  int64_t Eval(const IntLiteral &expr);
+  int64_t Eval(const BinOperator &expr);
+  int64_t Eval(const ParenExpr &expr);
+  int64_t Dispatch(const Expr &expr);
+};
 
 }  // namespace lang
 

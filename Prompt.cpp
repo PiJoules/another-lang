@@ -6,7 +6,7 @@
 #include "ReadInput.h"
 
 void RunPrompt() {
-  std::cout << "Lispy Version 0.0.0.0.1" << std::endl;
+  std::cout << "Lang Version 0.0.0.0.1" << std::endl;
   std::cout << "Press Ctrl+c to Exit" << std::endl;
 
   lang::ASTDump dumper(std::cerr);
@@ -21,12 +21,16 @@ void RunPrompt() {
 
     // <TESTING CODE>
     std::stringstream input_stream(input);
-    // std::ostream dummy_out(0);
     lang::Parser parser(input_stream);
     std::unique_ptr<lang::Node> result = parser.Parse();
     if (result) {
       dumper.Dump(*result);
       std::cerr << std::endl;
+
+      if (lang::NodeIsExpr(*result)) {
+        std::cerr << "Value: " << lang::ASTEval().EvalNumericExpr(*result)
+                  << std::endl;
+      }
     } else {
       parser.getFailure().Dump(std::cerr);
     }

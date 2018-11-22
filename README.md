@@ -20,6 +20,7 @@ $ clang++ -std=c++14 -g -Werror -Wall -fno-rtti -ledit Prompt.cpp Lexer.cpp Pars
 ```
 $ clang++ -std=c++14 -Werror -Wall -fno-rtti TestLexer.cpp Lexer.cpp -pthread -lgtest
 $ clang++ -std=c++14 -Werror -Wall -fno-rtti TestParser.cpp Parser.cpp Lexer.cpp -pthread -lgtest
+$ clang++ -std=c++14 -Werror -Wall -fno-rtti TestEval.cpp Parser.cpp Lexer.cpp Nodes.cpp -pthread -lgtest
 ```
 
 or
@@ -32,4 +33,10 @@ $ run_tests.sh
 
 ```
 $ clang-format -style=Google -i *.cpp *.h
+```
+
+or
+
+```
+$ format.sh
 ```

@@ -38,13 +38,15 @@ class Parser {
   // printed to the error stream in the event of failure. This is a dispatch to
   // all other ParseXXX methods.
   std::unique_ptr<Node> Parse();
+  std::unique_ptr<Expr> ParseExpr();
   ParseFailure getFailure() const { return failure_; }
 
  private:
   // Each of these ParseXXX methods expects a Lex call to succeed.
   std::unique_ptr<IntLiteral> ParseIntLiteral();
-  std::unique_ptr<Node> ParseBinOperandExpr();
+  std::unique_ptr<Expr> ParseBinOperandExpr();
   std::unique_ptr<ParenExpr> ParseParenExpr();
+  std::unique_ptr<Expr> ParseMulDivExpr();
 
   // Handle error messages for any LexStatus that is not a success.
   void DiagnoseLexStatus(LexStatus status, Token &tok);

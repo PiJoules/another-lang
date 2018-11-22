@@ -78,4 +78,55 @@ std::string NodeToString(const Node &node) {
   return sstream.str();
 }
 
+bool NodeIsExpr(NodeKind kind) {
+  switch (kind) {
+    case NODE_INT:
+    case NODE_BINOP:
+    case NODE_PAREN:
+      return true;
+  }
+  LANG_UNREACHABLE("should have covered all cases in the switch stmt above");
+}
+
+bool NodeIsExpr(const Node &node) { return NodeIsExpr(node.getKind()); }
+
+int64_t ASTEval::EvalNumericExpr(const Expr &expr) { return Dispatch(expr); }
+
+int64_t ASTEval::EvalNumericExpr(const Node &node) {
+  assert(NodeIsExpr(node) && "Can only evaluate nodes that are expressions.");
+  return EvalNumericExpr(static_cast<const Expr &>(node));
+}
+
+int64_t ASTEval::Dispatch(const Expr &expr) {
+  switch (expr.getKind()) {
+    case NODE_INT:
+      return Eval(static_cast<const IntLiteral &>(expr));
+    case NODE_BINOP:
+      return Eval(static_cast<const BinOperator &>(expr));
+    case NODE_PAREN:
+      return Eval(static_cast<const ParenExpr &>(expr));
+  }
+}
+
+int64_t ASTEval::Eval(const IntLiteral &expr) { return expr.getVal(); }
+
+int64_t ASTEval::Eval(const BinOperator &expr) {
+  int64_t lhs_val = EvalNumericExpr(expr.getLHS());
+  int64_t rhs_val = EvalNumericExpr(expr.getRHS());
+  switch (expr.getOp()) {
+    case BIN_ADD:
+      return lhs_val + rhs_val;
+    case BIN_SUB:
+      return lhs_val - rhs_val;
+    case BIN_MUL:
+      return lhs_val * rhs_val;
+    case BIN_DIV:
+      return lhs_val / rhs_val;
+  }
+}
+
+int64_t ASTEval::Eval(const ParenExpr &expr) {
+  return EvalNumericExpr(expr.getInner());
+}
+
 }  // namespace lang
