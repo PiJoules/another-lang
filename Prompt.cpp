@@ -24,12 +24,11 @@ void RunPrompt() {
     lang::Parser parser(input_stream);
     std::unique_ptr<lang::Node> result = parser.Parse();
     if (result) {
-      dumper.Dump(*result);
+      dumper.Visit(*result);
       std::cerr << std::endl;
 
       if (lang::NodeIsExpr(*result)) {
-        std::cerr << "Value: " << lang::ASTEval().EvalNumericExpr(*result)
-                  << std::endl;
+        std::cerr << "Value: " << lang::ASTEval().Visit(*result) << std::endl;
       }
     } else {
       parser.getFailure().Dump(std::cerr);

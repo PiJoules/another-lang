@@ -19,7 +19,7 @@ TEST_F(EvalTest, OrderOfOperations) {
   auto *expr = static_cast<Expr *>(result.get());
 
   ASTEval evaluator;
-  ASSERT_EQ(evaluator.EvalNumericExpr(*expr), 7);
+  ASSERT_EQ(evaluator.Visit(*expr), 7);
 }
 
 TEST_F(EvalTest, Paren) {
@@ -30,7 +30,7 @@ TEST_F(EvalTest, Paren) {
   auto *expr = static_cast<Expr *>(result.get());
 
   ASTEval evaluator;
-  ASSERT_EQ(evaluator.EvalNumericExpr(*expr), 18);
+  ASSERT_EQ(evaluator.Visit(*expr), 18);
 }
 
 }  // namespace

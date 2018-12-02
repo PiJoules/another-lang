@@ -63,18 +63,30 @@ class ParenExpr : public Expr {
   std::unique_ptr<Expr> inner_;
 };
 
-class ASTDump {
+template <class RetTy = void>
+class ConstASTVisitor {
+ public:
+  virtual ~ConstASTVisitor() {}
+
+  virtual RetTy Visit(const IntLiteral &node) { return RetTy(); }
+  virtual RetTy Visit(const BinOperator &node) { return RetTy(); }
+  virtual RetTy Visit(const ParenExpr &node) { return RetTy(); }
+
+ protected:
+  RetTy Dispatch(const Node &node);
+};
+
+class ASTDump : public ConstASTVisitor<void> {
  public:
   ASTDump(std::ostream &out) : ASTDump(out, /*indent_size=*/2) {}
   ASTDump(std::ostream &out, unsigned indent_size)
       : out_(out), indent_(indent_size, ' ') {}
-  void Dump(const Node &node);
+  void Visit(const Node &node) { Dispatch(node); }
 
  private:
-  void Dump(const IntLiteral &node);
-  void Dump(const BinOperator &node);
-  void Dump(const ParenExpr &node);
-  void Dispatch(const Node &node);
+  void Visit(const IntLiteral &node) override;
+  void Visit(const BinOperator &node) override;
+  void Visit(const ParenExpr &node) override;
   void AddSpacing();
 
   std::ostream &out_;
@@ -84,16 +96,15 @@ class ASTDump {
 
 std::string NodeToString(const Node &node);
 
-class ASTEval {
+class ASTEval : public ConstASTVisitor<int64_t> {
  public:
-  int64_t EvalNumericExpr(const Expr &expr);
-  int64_t EvalNumericExpr(const Node &node);
+  int64_t Visit(const Expr &expr);
+  int64_t Visit(const Node &node);
 
  private:
-  int64_t Eval(const IntLiteral &expr);
-  int64_t Eval(const BinOperator &expr);
-  int64_t Eval(const ParenExpr &expr);
-  int64_t Dispatch(const Expr &expr);
+  int64_t Visit(const IntLiteral &expr) override;
+  int64_t Visit(const BinOperator &expr) override;
+  int64_t Visit(const ParenExpr &expr) override;
 };
 
 }  // namespace lang

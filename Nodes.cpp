@@ -17,16 +17,15 @@ std::string BinOpKindToString(BinOperatorKind op) {
   }
 }
 
-void ASTDump::Dump(const Node &node) { Dispatch(node); }
-
-void ASTDump::Dispatch(const Node &node) {
+template <class RetTy>
+RetTy ConstASTVisitor<RetTy>::Dispatch(const Node &node) {
   switch (node.getKind()) {
     case NODE_INT:
-      return Dump(static_cast<const IntLiteral &>(node));
+      return Visit(static_cast<const IntLiteral &>(node));
     case NODE_BINOP:
-      return Dump(static_cast<const BinOperator &>(node));
+      return Visit(static_cast<const BinOperator &>(node));
     case NODE_PAREN:
-      return Dump(static_cast<const ParenExpr &>(node));
+      return Visit(static_cast<const ParenExpr &>(node));
   }
 }
 
@@ -34,22 +33,22 @@ void ASTDump::AddSpacing() {
   for (unsigned i = 0; i < indent_level_; ++i) out_ << indent_;
 }
 
-void ASTDump::Dump(const IntLiteral &node) {
+void ASTDump::Visit(const IntLiteral &node) {
   out_ << "<IntLiteral val=" << node.getVal() << ">";
 }
 
-void ASTDump::Dump(const BinOperator &node) {
+void ASTDump::Visit(const BinOperator &node) {
   out_ << "<BinOperator op='" << BinOpKindToString(node.getOp()) << "'\n";
   indent_level_++;
 
   AddSpacing();
   out_ << "lhs=";
-  Dump(node.getLHS());
+  Visit(node.getLHS());
   out_ << "\n";
 
   AddSpacing();
   out_ << "rhs=";
-  Dump(node.getRHS());
+  Visit(node.getRHS());
   out_ << "\n";
 
   indent_level_--;
@@ -57,13 +56,13 @@ void ASTDump::Dump(const BinOperator &node) {
   out_ << ">";
 }
 
-void ASTDump::Dump(const ParenExpr &node) {
+void ASTDump::Visit(const ParenExpr &node) {
   out_ << "<ParenExpr\n";
   indent_level_++;
 
   AddSpacing();
   out_ << "inner=";
-  Dump(node.getInner());
+  Visit(node.getInner());
   out_ << "\n";
 
   indent_level_--;
@@ -74,7 +73,7 @@ void ASTDump::Dump(const ParenExpr &node) {
 std::string NodeToString(const Node &node) {
   std::stringstream sstream;
   ASTDump dumper(sstream);
-  dumper.Dump(node);
+  dumper.Visit(node);
   return sstream.str();
 }
 
@@ -90,29 +89,18 @@ bool NodeIsExpr(NodeKind kind) {
 
 bool NodeIsExpr(const Node &node) { return NodeIsExpr(node.getKind()); }
 
-int64_t ASTEval::EvalNumericExpr(const Expr &expr) { return Dispatch(expr); }
+int64_t ASTEval::Visit(const Expr &expr) { return Dispatch(expr); }
 
-int64_t ASTEval::EvalNumericExpr(const Node &node) {
+int64_t ASTEval::Visit(const Node &node) {
   assert(NodeIsExpr(node) && "Can only evaluate nodes that are expressions.");
-  return EvalNumericExpr(static_cast<const Expr &>(node));
+  return Visit(static_cast<const Expr &>(node));
 }
 
-int64_t ASTEval::Dispatch(const Expr &expr) {
-  switch (expr.getKind()) {
-    case NODE_INT:
-      return Eval(static_cast<const IntLiteral &>(expr));
-    case NODE_BINOP:
-      return Eval(static_cast<const BinOperator &>(expr));
-    case NODE_PAREN:
-      return Eval(static_cast<const ParenExpr &>(expr));
-  }
-}
+int64_t ASTEval::Visit(const IntLiteral &expr) { return expr.getVal(); }
 
-int64_t ASTEval::Eval(const IntLiteral &expr) { return expr.getVal(); }
-
-int64_t ASTEval::Eval(const BinOperator &expr) {
-  int64_t lhs_val = EvalNumericExpr(expr.getLHS());
-  int64_t rhs_val = EvalNumericExpr(expr.getRHS());
+int64_t ASTEval::Visit(const BinOperator &expr) {
+  int64_t lhs_val = Visit(expr.getLHS());
+  int64_t rhs_val = Visit(expr.getRHS());
   switch (expr.getOp()) {
     case BIN_ADD:
       return lhs_val + rhs_val;
@@ -125,8 +113,6 @@ int64_t ASTEval::Eval(const BinOperator &expr) {
   }
 }
 
-int64_t ASTEval::Eval(const ParenExpr &expr) {
-  return EvalNumericExpr(expr.getInner());
-}
+int64_t ASTEval::Visit(const ParenExpr &expr) { return Visit(expr.getInner()); }
 
 }  // namespace lang
