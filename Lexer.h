@@ -4,10 +4,13 @@
 #include <istream>
 #include <string>
 
+#include "LangCommon.h"
+
 namespace lang {
 
 enum TokenKind {
   TOK_INT,
+  TOK_ID,
 
   // Container characters
   TOK_LPAR,
@@ -19,29 +22,19 @@ enum TokenKind {
   TOK_MUL,
   TOK_DIV,
 
+  // Assignment operators
+  TOK_ASSIGN,
+
+  TOK_SEMICOL,
   TOK_END,
   TOK_BAD
 };
 
 std::string TokenKindToString(TokenKind kind);
 
-struct TokenLocation {
-  // These index from zero.
-  int lineno;
-  int colno;
-
-  TokenLocation() : lineno(0), colno(0) {}
-  TokenLocation(int lineno, int colno) : lineno(lineno), colno(colno) {}
-
-  std::string toString() const;
-
-  bool operator==(const TokenLocation &Other) const;
-  bool operator!=(const TokenLocation &Other) const;
-};
-
 struct Token {
   TokenKind kind;
-  TokenLocation loc;
+  SourceLocation loc;
   std::string chars;
 
   std::string toString() const;
@@ -64,11 +57,15 @@ class Lexer {
   // Does the same thing as Lex, but does not advance the stream of tokens.
   LexStatus Peek(Token &result);
 
-  TokenLocation getCurrentLoc() const { return current_loc_; }
+  SourceLocation getCurrentLoc() const { return current_loc_; }
 
  private:
   // This method assumes the first character in the stream is a digit.
   LexStatus LexInt(Token &result);
+
+  // This method assumes the first character in the stream is an alphabetic
+  // character.
+  LexStatus LexID(Token &result);
 
   // Set a token consisting of a single character and advance the token
   // location. This also advances the stream. This assumes the character is not
@@ -76,7 +73,7 @@ class Lexer {
   Token MakeSingleCharToken(std::istream &input, TokenKind kind);
 
   std::istream &input_;
-  TokenLocation current_loc_;
+  SourceLocation current_loc_;
   Token lookahead_;
   bool has_lookahead_ = false;
 };

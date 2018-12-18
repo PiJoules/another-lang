@@ -10,6 +10,8 @@ std::string TokenKindToString(TokenKind kind) {
   switch (kind) {
     case TOK_INT:
       return "TOK_INT";
+    case TOK_ID:
+      return "TOK_ID";
     case TOK_LPAR:
       return "TOK_LPAR";
     case TOK_RPAR:
@@ -22,25 +24,15 @@ std::string TokenKindToString(TokenKind kind) {
       return "TOK_MUL";
     case TOK_DIV:
       return "TOK_DIV";
+    case TOK_ASSIGN:
+      return "TOK_ASSIGN";
+    case TOK_SEMICOL:
+      return "TOK_SEMICOL";
     case TOK_END:
       return "TOK_END";
     case TOK_BAD:
       return "TOK_BAD";
   }
-}
-
-std::string TokenLocation::toString() const {
-  std::stringstream str;
-  str << "<lineno=" << lineno << " colno=" << colno << ">";
-  return str.str();
-}
-
-bool TokenLocation::operator==(const TokenLocation &Other) const {
-  return lineno == Other.lineno && colno == Other.colno;
-}
-
-bool TokenLocation::operator!=(const TokenLocation &Other) const {
-  return !(*this == Other);
 }
 
 std::string Token::toString() const {
@@ -105,6 +97,12 @@ LexStatus Lexer::Lex(Token &result) {
       case '/':
         result = MakeSingleCharToken(input_, TOK_DIV);
         return LEX_SUCCESS;
+      case ';':
+        result = MakeSingleCharToken(input_, TOK_SEMICOL);
+        return LEX_SUCCESS;
+      case '=':
+        result = MakeSingleCharToken(input_, TOK_ASSIGN);
+        return LEX_SUCCESS;
       default:
         if (isspace(c)) {
           current_loc_.colno++;
@@ -112,6 +110,8 @@ LexStatus Lexer::Lex(Token &result) {
           c = input_.peek();
         } else if (isdigit(c)) {
           return LexInt(result);
+        } else if (isalpha(c) || c == '_') {
+          return LexID(result);
         } else {
           result.loc = current_loc_;
           result.chars = c;
@@ -140,6 +140,31 @@ LexStatus Lexer::LexInt(Token &result) {
   }
 
   result.kind = TOK_INT;
+  result.loc = current_loc_;
+  result.chars = str;
+
+  current_loc_.colno += str.size();
+  return LEX_SUCCESS;
+}
+
+/**
+ * An ID can start with an underscore or alphabetic character, followed by
+ * either underscores, alphabetic characters, or digits.
+ */
+LexStatus Lexer::LexID(Token &result) {
+  int c = input_.peek();
+  assert((isalpha(c) || c == '_') &&
+         "Starting character in an ID must be an alphabetic character or "
+         "underscore.");
+
+  std::string str;
+  while (isalnum(c) || c == '_') {
+    str.push_back(c);
+    input_.get();
+    c = input_.peek();
+  }
+
+  result.kind = TOK_ID;
   result.loc = current_loc_;
   result.chars = str;
 

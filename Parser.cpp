@@ -55,11 +55,67 @@ void ParseFailure::Dump(std::ostream &out) const {
       out << "Expected a closing ')', but found " << failing_tok.toString()
           << std::endl;
       return;
+    case EXPECTED_ASSIGNABLE_EXPR:
+      out << "Expected an assignable expression at " << failing_loc.toString()
+          << std::endl;
+      return;
+    case EXPECTED_ASSIGNMENT:
+      out << "Expected an '=', but found " << failing_tok.toString()
+          << std::endl;
+      return;
+    case EXPECTED_STMT_END:
+      out << "Expected the statement to end with a ';', but found "
+          << failing_tok.toString() << std::endl;
+      return;
   }
   LANG_UNREACHABLE("should have exited before this");
 }
 
-std::unique_ptr<Node> Parser::Parse() { return ParseExpr(); }
+std::unique_ptr<Node> Parser::Parse() { return ParseStmt(); }
+
+/**
+ * stmt : <expr> ('=' <expr>)* ';'
+ */
+std::unique_ptr<Stmt> Parser::ParseStmt() {
+  auto lhs = ParseExpr();
+  if (!lhs) return nullptr;
+
+  // '=' or ';'
+  Token tok;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  ConsumePeekedToken();
+
+  std::unique_ptr<Stmt> stmt;
+  if (tok.kind == TOK_ASSIGN) {
+    // Assign
+    if (!lhs->isAssignable()) {
+      failure_ = ParseFailure(ParseFailure::EXPECTED_ASSIGNABLE_EXPR,
+                              lexer_.getCurrentLoc());
+      return nullptr;
+    }
+
+    auto rhs = ParseExpr();
+    if (!rhs) return nullptr;
+
+    std::unique_ptr<AssignableExpr> as_assignable(
+        static_cast<AssignableExpr *>(lhs.release()));
+    stmt = std::make_unique<Assign>(std::move(as_assignable), std::move(rhs));
+
+    // Ending ';'
+    if (!PeekAndDiagnose(tok)) return nullptr;
+  } else {
+    // ExprStmt
+    stmt = std::make_unique<ExprStmt>(std::move(lhs));
+  }
+
+  if (tok.kind != TOK_SEMICOL) {
+    failure_ = ParseFailure(ParseFailure::EXPECTED_STMT_END, tok);
+    return nullptr;
+  }
+  ConsumePeekedToken();
+
+  return stmt;
+}
 
 /**
  * mul_div_expr : <bin_operand_expr> (('*' | '/') <bin_operand_expr>)*
@@ -137,10 +193,20 @@ std::unique_ptr<Expr> Parser::ParseExpr() {
   return result;
 }
 
+std::unique_ptr<IDExpr> Parser::ParseIDExpr() {
+  Token tok;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  ConsumePeekedToken();
+  assert(tok.kind == TOK_ID &&
+         "Expected the first token to be a TOK_ID when parsing an IDExpr");
+  return std::make_unique<IDExpr>(tok.chars);
+}
+
 /**
  * Parse an expression that makes up a operand in a binary operation.
  *
  * bin_operand_expr : <number>
+ *                  | <ID>
  *                  | <paren_expr>
  */
 std::unique_ptr<Expr> Parser::ParseBinOperandExpr() {
@@ -150,6 +216,8 @@ std::unique_ptr<Expr> Parser::ParseBinOperandExpr() {
   switch (tok.kind) {
     case TOK_INT:
       return ParseIntLiteral();
+    case TOK_ID:
+      return ParseIDExpr();
     case TOK_LPAR:
       return ParseParenExpr();
     default:

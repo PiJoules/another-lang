@@ -15,10 +15,11 @@ std::string BinOpKindToString(BinOperatorKind op) {
     case BIN_DIV:
       return "/";
   }
+  LANG_UNREACHABLE("found an unhandled BinaryOperatorKind");
 }
 
 template <class RetTy>
-RetTy ConstASTVisitor<RetTy>::Dispatch(const Node &node) {
+RetTy AbstractConstASTVisitor<RetTy>::Dispatch(const Node &node) {
   switch (node.getKind()) {
     case NODE_INT:
       return Visit(static_cast<const IntLiteral &>(node));
@@ -26,7 +27,14 @@ RetTy ConstASTVisitor<RetTy>::Dispatch(const Node &node) {
       return Visit(static_cast<const BinOperator &>(node));
     case NODE_PAREN:
       return Visit(static_cast<const ParenExpr &>(node));
+    case NODE_ID:
+      return Visit(static_cast<const IDExpr &>(node));
+    case NODE_EXPR_STMT:
+      return Visit(static_cast<const ExprStmt &>(node));
+    case NODE_ASSIGN:
+      return Visit(static_cast<const Assign &>(node));
   }
+  LANG_UNREACHABLE("found an unhandled NodeKind");
 }
 
 void ASTDump::AddSpacing() {
@@ -43,12 +51,12 @@ void ASTDump::Visit(const BinOperator &node) {
 
   AddSpacing();
   out_ << "lhs=";
-  Visit(node.getLHS());
+  Dump(node.getLHS());
   out_ << "\n";
 
   AddSpacing();
   out_ << "rhs=";
-  Visit(node.getRHS());
+  Dump(node.getRHS());
   out_ << "\n";
 
   indent_level_--;
@@ -62,7 +70,45 @@ void ASTDump::Visit(const ParenExpr &node) {
 
   AddSpacing();
   out_ << "inner=";
-  Visit(node.getInner());
+  Dump(node.getInner());
+  out_ << "\n";
+
+  indent_level_--;
+  AddSpacing();
+  out_ << ">";
+}
+
+void ASTDump::Visit(const IDExpr &node) {
+  out_ << "<IDExpr"
+       << " name='" << node.getName() << "'>";
+}
+
+void ASTDump::Visit(const ExprStmt &node) {
+  out_ << "<ExprStmt\n";
+  indent_level_++;
+
+  AddSpacing();
+  out_ << "expr=";
+  Dump(node.getExpr());
+  out_ << "\n";
+
+  indent_level_--;
+  AddSpacing();
+  out_ << ">";
+}
+
+void ASTDump::Visit(const Assign &node) {
+  out_ << "<Assign\n";
+  indent_level_++;
+
+  AddSpacing();
+  out_ << "lhs=";
+  Dump(node.getLHS());
+  out_ << "\n";
+
+  AddSpacing();
+  out_ << "rhs=";
+  Dump(node.getRHS());
   out_ << "\n";
 
   indent_level_--;
@@ -73,34 +119,104 @@ void ASTDump::Visit(const ParenExpr &node) {
 std::string NodeToString(const Node &node) {
   std::stringstream sstream;
   ASTDump dumper(sstream);
-  dumper.Visit(node);
+  dumper.Dump(node);
   return sstream.str();
 }
 
-bool NodeIsExpr(NodeKind kind) {
-  switch (kind) {
+std::unique_ptr<Stmt> NodeCloner::Clone(const Stmt &stmt) const {
+  switch (stmt.getKind()) {
     case NODE_INT:
     case NODE_BINOP:
     case NODE_PAREN:
-      return true;
+    case NODE_ID:
+      break;
+    case NODE_EXPR_STMT:
+      return Visit(static_cast<const ExprStmt &>(stmt));
+    case NODE_ASSIGN:
+      return Visit(static_cast<const Assign &>(stmt));
   }
-  LANG_UNREACHABLE("should have covered all cases in the switch stmt above");
+  LANG_UNREACHABLE("Expected a statement");
 }
 
-bool NodeIsExpr(const Node &node) { return NodeIsExpr(node.getKind()); }
+std::unique_ptr<Expr> NodeCloner::Clone(const Expr &expr) const {
+  switch (expr.getKind()) {
+    case NODE_INT:
+      return Visit(static_cast<const IntLiteral &>(expr));
+    case NODE_BINOP:
+      return Visit(static_cast<const BinOperator &>(expr));
+    case NODE_PAREN:
+      return Visit(static_cast<const ParenExpr &>(expr));
+    case NODE_ID:
+      return Clone(static_cast<const IDExpr &>(expr));
+    case NODE_EXPR_STMT:
+    case NODE_ASSIGN:
+      break;
+  }
+  LANG_UNREACHABLE("Expected an expression");
+}
 
-int64_t ASTEval::Visit(const Expr &expr) { return Dispatch(expr); }
+std::unique_ptr<AssignableExpr> NodeCloner::CloneAssignableExpr(
+    const AssignableExpr &expr) const {
+  std::unique_ptr<Expr> cloned_expr = Clone(expr);
+  return std::unique_ptr<AssignableExpr>(
+      static_cast<AssignableExpr *>(cloned_expr.release()));
+}
 
-int64_t ASTEval::Visit(const Node &node) {
-  assert(NodeIsExpr(node) && "Can only evaluate nodes that are expressions.");
-  return Visit(static_cast<const Expr &>(node));
+std::unique_ptr<IntLiteral> NodeCloner::Visit(const IntLiteral &expr) const {
+  return std::make_unique<IntLiteral>(expr.getVal());
+}
+
+std::unique_ptr<BinOperator> NodeCloner::Visit(const BinOperator &expr) const {
+  return std::make_unique<BinOperator>(Clone(expr.getLHS()),
+                                       Clone(expr.getRHS()), expr.getOp());
+}
+
+std::unique_ptr<ParenExpr> NodeCloner::Visit(const ParenExpr &expr) const {
+  return std::make_unique<ParenExpr>(Clone(expr.getInner()));
+}
+
+std::unique_ptr<IDExpr> NodeCloner::Visit(const IDExpr &expr) const {
+  return std::make_unique<IDExpr>(expr.getName());
+}
+
+std::unique_ptr<ExprStmt> NodeCloner::Visit(const ExprStmt &stmt) const {
+  return std::make_unique<ExprStmt>(Clone(stmt.getExpr()));
+}
+
+std::unique_ptr<Assign> NodeCloner::Visit(const Assign &stmt) const {
+  return std::make_unique<Assign>(CloneAssignableExpr(stmt.getLHS()),
+                                  Clone(stmt.getRHS()));
+}
+
+int64_t ASTEval::EvalNumeric(const Expr &expr) { return DispatchExpr(expr); }
+
+int64_t ASTEval::EvalNumeric(const Node &node) {
+  assert(node.isExpr() && "Can only evaluate nodes that are expressions.");
+  return EvalNumeric(static_cast<const Expr &>(node));
+}
+
+int64_t ASTEval::DispatchExpr(const Expr &expr) {
+  switch (expr.getKind()) {
+    case NODE_INT:
+      return Visit(static_cast<const IntLiteral &>(expr));
+    case NODE_BINOP:
+      return Visit(static_cast<const BinOperator &>(expr));
+    case NODE_PAREN:
+      return Visit(static_cast<const ParenExpr &>(expr));
+    case NODE_ID:
+      return Visit(static_cast<const IDExpr &>(expr));
+    case NODE_EXPR_STMT:
+    case NODE_ASSIGN:
+      break;
+  }
+  LANG_UNREACHABLE("Expected expression");
 }
 
 int64_t ASTEval::Visit(const IntLiteral &expr) { return expr.getVal(); }
 
 int64_t ASTEval::Visit(const BinOperator &expr) {
-  int64_t lhs_val = Visit(expr.getLHS());
-  int64_t rhs_val = Visit(expr.getRHS());
+  int64_t lhs_val = EvalNumeric(expr.getLHS());
+  int64_t rhs_val = EvalNumeric(expr.getRHS());
   switch (expr.getOp()) {
     case BIN_ADD:
       return lhs_val + rhs_val;
@@ -113,6 +229,53 @@ int64_t ASTEval::Visit(const BinOperator &expr) {
   }
 }
 
-int64_t ASTEval::Visit(const ParenExpr &expr) { return Visit(expr.getInner()); }
+int64_t ASTEval::Visit(const ParenExpr &expr) {
+  return EvalNumeric(expr.getInner());
+}
+
+int64_t ASTEval::Visit(const IDExpr &expr) {
+  const Expr *id = sema_.getID(expr.getName());
+  if (id) return EvalNumeric(*id);
+  failed_ = true;
+  return -1;
+}
+
+void ASTEval::EvalStmt(const Stmt &stmt) { DispatchStmt(stmt); }
+
+void ASTEval::DispatchStmt(const Stmt &stmt) {
+  switch (stmt.getKind()) {
+    case NODE_INT:
+    case NODE_BINOP:
+    case NODE_PAREN:
+    case NODE_ID:
+      break;
+    case NODE_EXPR_STMT:
+      return Visit(static_cast<const ExprStmt &>(stmt));
+    case NODE_ASSIGN:
+      return Visit(static_cast<const Assign &>(stmt));
+  }
+  LANG_UNREACHABLE("Expected statement");
+}
+
+void ASTEval::Visit(const ExprStmt &stmt) { /*Nothing to evaluate*/
+}
+
+void ASTEval::Visit(const Assign &stmt) {
+  const AssignableExpr &lhs = stmt.getLHS();
+  switch (lhs.getKind()) {
+    case NODE_ID: {
+      const IDExpr &id = static_cast<const IDExpr &>(lhs);
+      sema_.setID(id.getName(), stmt.getRHS());
+      return;
+    }
+    case NODE_BINOP:
+    case NODE_PAREN:
+    case NODE_INT:
+    case NODE_EXPR_STMT:
+    case NODE_ASSIGN:
+      break;
+  }
+  LANG_UNREACHABLE("Expected assignable expression");
+}
 
 }  // namespace lang

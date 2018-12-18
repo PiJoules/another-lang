@@ -10,6 +10,7 @@ void RunPrompt() {
   std::cout << "Press Ctrl+c to Exit" << std::endl;
 
   lang::ASTDump dumper(std::cerr);
+  lang::ASTEval evaluator;
 
   while (true) {
     char* input_cstr = readline("lispy> ");
@@ -24,11 +25,23 @@ void RunPrompt() {
     lang::Parser parser(input_stream);
     std::unique_ptr<lang::Node> result = parser.Parse();
     if (result) {
-      dumper.Visit(*result);
+      dumper.Dump(*result);
       std::cerr << std::endl;
 
-      if (lang::NodeIsExpr(*result)) {
-        std::cerr << "Value: " << lang::ASTEval().Visit(*result) << std::endl;
+      if (result->isExpr()) {
+        std::cerr << "Value: " << evaluator.EvalNumeric(*result) << std::endl;
+      } else if (result->getKind() == lang::NODE_EXPR_STMT) {
+        std::cerr << "Value: "
+                  << evaluator.EvalNumeric(
+                         static_cast<lang::ExprStmt*>(result.get())->getExpr())
+                  << std::endl;
+      } else if (result->isStmt()) {
+        evaluator.EvalStmt(*static_cast<lang::Stmt*>(result.get()));
+      }
+
+      if (evaluator.Failed()) {
+        std::cerr << "Failed evaluation" << std::endl;
+        evaluator.ResetFail();
       }
     } else {
       parser.getFailure().Dump(std::cerr);

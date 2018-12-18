@@ -15,6 +15,12 @@
 $ clang++ -std=c++14 -g -Werror -Wall -fno-rtti -ledit Prompt.cpp Lexer.cpp Parser.cpp Nodes.cpp
 ```
 
+or
+
+```
+$ build.sh
+```
+
 ### Tests
 
 ```

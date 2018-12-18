@@ -3,8 +3,8 @@
 #include "Lexer.h"
 
 using lang::Lexer;
+using lang::SourceLocation;
 using lang::Token;
-using lang::TokenLocation;
 
 namespace {
 
@@ -19,8 +19,8 @@ TEST_F(LexerTest, EmptyStream) {
   ASSERT_EQ(lexer.Lex(result), lang::LEX_SUCCESS);
   ASSERT_EQ(result.kind, lang::TOK_END);
   ASSERT_STREQ(result.chars.c_str(), "");
-  ASSERT_EQ(result.loc, TokenLocation(0, 0));
-  ASSERT_EQ(lexer.getCurrentLoc(), TokenLocation(0, 0));
+  ASSERT_EQ(result.loc, SourceLocation(0, 0));
+  ASSERT_EQ(lexer.getCurrentLoc(), SourceLocation(0, 0));
 }
 
 TEST_F(LexerTest, Int) {
@@ -29,8 +29,8 @@ TEST_F(LexerTest, Int) {
   Token result;
   ASSERT_EQ(lexer.Lex(result), lang::LEX_SUCCESS);
   ASSERT_STREQ(result.chars.c_str(), "128");
-  ASSERT_EQ(result.loc, TokenLocation(0, 0));
-  ASSERT_EQ(lexer.getCurrentLoc(), TokenLocation(0, 3));
+  ASSERT_EQ(result.loc, SourceLocation(0, 0));
+  ASSERT_EQ(lexer.getCurrentLoc(), SourceLocation(0, 3));
 }
 
 TEST_F(LexerTest, IntTrailingSpace) {
@@ -39,8 +39,8 @@ TEST_F(LexerTest, IntTrailingSpace) {
   Token result;
   ASSERT_EQ(lexer.Lex(result), lang::LEX_SUCCESS);
   ASSERT_STREQ(result.chars.c_str(), "128");
-  ASSERT_EQ(result.loc, TokenLocation(0, 0));
-  ASSERT_EQ(lexer.getCurrentLoc(), TokenLocation(0, 3));
+  ASSERT_EQ(result.loc, SourceLocation(0, 0));
+  ASSERT_EQ(lexer.getCurrentLoc(), SourceLocation(0, 3));
 }
 
 }  // namespace
