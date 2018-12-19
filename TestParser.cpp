@@ -13,8 +13,12 @@ class ParserTest : public ::testing::Test {
 
 TEST_F(ParserTest, EmptyStream) {
   Parser parser(input_);
-  ASSERT_EQ(parser.Parse(), nullptr);
-  ASSERT_EQ(parser.getFailure().reason, ParseFailure::EXPECTED_BIN_OPERAND_TOK);
+  auto result = parser.Parse();
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->getKind(), NODE_MODULE);
+
+  const auto *module = static_cast<const Module *>(result.get());
+  ASSERT_EQ(module->getStmts().size(), 0);
 }
 
 TEST_F(ParserTest, Int) {

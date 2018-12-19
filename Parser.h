@@ -55,6 +55,7 @@ class Parser {
   // printed to the error stream in the event of failure. This is a dispatch to
   // all other ParseXXX methods.
   std::unique_ptr<Node> Parse();
+  std::unique_ptr<Module> ParseModule();
   std::unique_ptr<Expr> ParseExpr();
   std::unique_ptr<Stmt> ParseStmt();
   ParseFailure getFailure() const { return failure_; }

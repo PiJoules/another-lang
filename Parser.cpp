@@ -71,7 +71,26 @@ void ParseFailure::Dump(std::ostream &out) const {
   LANG_UNREACHABLE("should have exited before this");
 }
 
-std::unique_ptr<Node> Parser::Parse() { return ParseStmt(); }
+std::unique_ptr<Node> Parser::Parse() { return ParseModule(); }
+
+/**
+ * module : stmt+
+ */
+std::unique_ptr<Module> Parser::ParseModule() {
+  Token tok;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+
+  std::vector<std::unique_ptr<Stmt>> stmts;
+  while (tok.kind != TOK_END) {
+    auto stmt = ParseStmt();
+    if (!stmt) return nullptr;
+    stmts.push_back(std::move(stmt));
+
+    if (!PeekAndDiagnose(tok)) return nullptr;
+  }
+
+  return std::make_unique<Module>(std::move(stmts));
+}
 
 /**
  * stmt : <expr> ('=' <expr>)* ';'

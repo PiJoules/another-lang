@@ -4,13 +4,14 @@
 #include <memory>
 #include <ostream>
 #include <unordered_map>
+#include <vector>
 
 #include "LangCommon.h"
 
 namespace lang {
 
 enum NodeKind {
-#define TYPE(NODE, NODEKIND) NODEKIND,
+#define NODE(NAME, KIND) KIND,
 #include "Nodes.def"
 };
 
@@ -29,6 +30,25 @@ class Stmt : public Node {
  public:
   bool isExpr() const override { return false; }
   bool isStmt() const override { return true; }
+};
+
+class Module : public Node {
+ public:
+  Module(std::vector<std::unique_ptr<Stmt>> stmts)
+    : stmts_(std::move(stmts)) {}
+
+  NodeKind getKind() const override {
+    return NODE_MODULE;
+  }
+  bool isExpr() const override { return false; }
+  bool isStmt() const override { return false; }
+
+  const std::vector<std::unique_ptr<Stmt>> &getStmts() const {
+    return stmts_;
+  }
+
+ private:
+  std::vector<std::unique_ptr<Stmt>> stmts_;
 };
 
 class Expr : public Node {
@@ -128,13 +148,9 @@ class AbstractConstASTVisitor {
  public:
   virtual ~AbstractConstASTVisitor() {}
 
-  virtual RetTy Visit(const IntLiteral &node) = 0;
-  virtual RetTy Visit(const BinOperator &node) = 0;
-  virtual RetTy Visit(const ParenExpr &node) = 0;
-  virtual RetTy Visit(const IDExpr &node) = 0;
-
-  virtual RetTy Visit(const ExprStmt &node) = 0;
-  virtual RetTy Visit(const Assign &node) = 0;
+#define NODE(NAME, KIND) \
+  virtual RetTy Visit(const NAME &node) = 0;
+#include "Nodes.def"
 
  protected:
   RetTy Dispatch(const Node &node);
@@ -143,13 +159,9 @@ class AbstractConstASTVisitor {
 template <class RetTy = void>
 class ConstASTVisitor : public AbstractConstASTVisitor<RetTy> {
  public:
-  virtual RetTy Visit(const IntLiteral &node) override { return RetTy(); }
-  virtual RetTy Visit(const BinOperator &node) override { return RetTy(); }
-  virtual RetTy Visit(const ParenExpr &node) override { return RetTy(); }
-  virtual RetTy Visit(const IDExpr &node) override { return RetTy(); }
-
-  virtual RetTy Visit(const ExprStmt &node) override { return RetTy(); }
-  virtual RetTy Visit(const Assign &node) override { return RetTy(); }
+#define NODE(NAME, KIND) \
+  virtual RetTy Visit(const NAME &node) override { return RetTy(); }
+#include "Nodes.def"
 };
 
 class ASTDump : public AbstractConstASTVisitor<void> {
@@ -160,13 +172,9 @@ class ASTDump : public AbstractConstASTVisitor<void> {
   void Dump(const Node &node) { Dispatch(node); }
 
  private:
-  void Visit(const IntLiteral &node) override;
-  void Visit(const BinOperator &node) override;
-  void Visit(const ParenExpr &node) override;
-  void Visit(const IDExpr &node) override;
-
-  void Visit(const ExprStmt &node) override;
-  void Visit(const Assign &node) override;
+#define NODE(NAME, KIND) \
+  void Visit(const NAME &node) override;
+#include "Nodes.def"
 
   void AddSpacing();
 

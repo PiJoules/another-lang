@@ -21,9 +21,9 @@ std::string BinOpKindToString(BinOperatorKind op) {
 template <class RetTy>
 RetTy AbstractConstASTVisitor<RetTy>::Dispatch(const Node &node) {
   switch (node.getKind()) {
-#define TYPE(NODE, NODEKIND) \
-  case NODEKIND:             \
-    return Visit(static_cast<const NODE &>(node));
+#define NODE(NAME, KIND) \
+  case KIND:             \
+    return Visit(static_cast<const NAME &>(node));
 #include "Nodes.def"
   }
   LANG_UNREACHABLE("found an unhandled NodeKind");
@@ -31,6 +31,21 @@ RetTy AbstractConstASTVisitor<RetTy>::Dispatch(const Node &node) {
 
 void ASTDump::AddSpacing() {
   for (unsigned i = 0; i < indent_level_; ++i) out_ << indent_;
+}
+
+void ASTDump::Visit(const Module &node) {
+  out_ << "<Module stmts=\n";
+  indent_level_++;
+
+  for (const std::unique_ptr<Stmt> &stmt : node.getStmts()) {
+    AddSpacing();
+    Dump(*stmt);
+    out_ << "\n";
+  }
+
+  indent_level_--;
+  AddSpacing();
+  out_ << ">";
 }
 
 void ASTDump::Visit(const IntLiteral &node) {
@@ -117,12 +132,12 @@ std::string NodeToString(const Node &node) {
 
 std::unique_ptr<Stmt> NodeCloner::Clone(const Stmt &stmt) const {
   switch (stmt.getKind()) {
-#define TYPE(NODE, NODEKIND) \
-  case NODEKIND:             \
+#define NODE(NAME, KIND) \
+  case KIND:             \
     break;
-#define STMT(NODE, NODEKIND) \
-  case NODEKIND:             \
-    return Visit(static_cast<const NODE &>(stmt));
+#define STMT(NAME, KIND) \
+  case KIND:             \
+    return Visit(static_cast<const NAME &>(stmt));
 #include "Nodes.def"
   }
   LANG_UNREACHABLE("Expected a statement");
@@ -130,12 +145,12 @@ std::unique_ptr<Stmt> NodeCloner::Clone(const Stmt &stmt) const {
 
 std::unique_ptr<Expr> NodeCloner::Clone(const Expr &expr) const {
   switch (expr.getKind()) {
-#define TYPE(NODE, NODEKIND) \
-  case NODEKIND:             \
+#define NODE(NAME, KIND) \
+  case KIND:             \
     break;
-#define EXPR(NODE, NODEKIND) \
-  case NODEKIND:             \
-    return Visit(static_cast<const NODE &>(expr));
+#define EXPR(NAME, KIND) \
+  case KIND:             \
+    return Visit(static_cast<const NAME &>(expr));
 #include "Nodes.def"
   }
   LANG_UNREACHABLE("Expected an expression");
@@ -183,12 +198,12 @@ int64_t ASTEval::EvalNumeric(const Node &node) {
 
 int64_t ASTEval::DispatchExpr(const Expr &expr) {
   switch (expr.getKind()) {
-#define TYPE(NODE, NODEKIND) \
-  case NODEKIND:             \
+#define NODE(NAME, KIND) \
+  case KIND:             \
     break;
-#define EXPR(NODE, NODEKIND) \
-  case NODEKIND:             \
-    return Visit(static_cast<const NODE &>(expr));
+#define EXPR(NAME, KIND) \
+  case KIND:             \
+    return Visit(static_cast<const NAME &>(expr));
 #include "Nodes.def"
   }
   LANG_UNREACHABLE("Expected expression");
@@ -226,12 +241,12 @@ void ASTEval::EvalStmt(const Stmt &stmt) { DispatchStmt(stmt); }
 
 void ASTEval::DispatchStmt(const Stmt &stmt) {
   switch (stmt.getKind()) {
-#define TYPE(NODE, NODEKIND) \
-  case NODEKIND:             \
+#define NODE(NAME, KIND) \
+  case KIND:             \
     break;
-#define STMT(NODE, NODEKIND) \
-  case NODEKIND:             \
-    return Visit(static_cast<const NODE &>(stmt));
+#define STMT(NAME, KIND) \
+  case KIND:             \
+    return Visit(static_cast<const NAME &>(stmt));
 #include "Nodes.def"
   }
   LANG_UNREACHABLE("Expected statement");
@@ -243,10 +258,10 @@ void ASTEval::Visit(const ExprStmt &stmt) { /*Nothing to evaluate*/
 void ASTEval::Visit(const Assign &stmt) {
   const AssignableExpr &lhs = stmt.getLHS();
   switch (lhs.getKind()) {
-#define TYPE(NODE, NODEKIND) \
-  case NODEKIND:             \
+#define NODE(NAME, KIND) \
+  case KIND:             \
     break;
-#define ASSIGNABLE(NODE, NODEKIND)
+#define ASSIGNABLE(NAME, KIND)
 #include "Nodes.def"
     case NODE_ID: {
       const IDExpr &id = static_cast<const IDExpr &>(lhs);
