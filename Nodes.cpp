@@ -21,18 +21,10 @@ std::string BinOpKindToString(BinOperatorKind op) {
 template <class RetTy>
 RetTy AbstractConstASTVisitor<RetTy>::Dispatch(const Node &node) {
   switch (node.getKind()) {
-    case NODE_INT:
-      return Visit(static_cast<const IntLiteral &>(node));
-    case NODE_BINOP:
-      return Visit(static_cast<const BinOperator &>(node));
-    case NODE_PAREN:
-      return Visit(static_cast<const ParenExpr &>(node));
-    case NODE_ID:
-      return Visit(static_cast<const IDExpr &>(node));
-    case NODE_EXPR_STMT:
-      return Visit(static_cast<const ExprStmt &>(node));
-    case NODE_ASSIGN:
-      return Visit(static_cast<const Assign &>(node));
+#define TYPE(NODE, NODEKIND) \
+  case NODEKIND:             \
+    return Visit(static_cast<const NODE &>(node));
+#include "Nodes.def"
   }
   LANG_UNREACHABLE("found an unhandled NodeKind");
 }
@@ -125,32 +117,26 @@ std::string NodeToString(const Node &node) {
 
 std::unique_ptr<Stmt> NodeCloner::Clone(const Stmt &stmt) const {
   switch (stmt.getKind()) {
-    case NODE_INT:
-    case NODE_BINOP:
-    case NODE_PAREN:
-    case NODE_ID:
-      break;
-    case NODE_EXPR_STMT:
-      return Visit(static_cast<const ExprStmt &>(stmt));
-    case NODE_ASSIGN:
-      return Visit(static_cast<const Assign &>(stmt));
+#define TYPE(NODE, NODEKIND) \
+  case NODEKIND:             \
+    break;
+#define STMT(NODE, NODEKIND) \
+  case NODEKIND:             \
+    return Visit(static_cast<const NODE &>(stmt));
+#include "Nodes.def"
   }
   LANG_UNREACHABLE("Expected a statement");
 }
 
 std::unique_ptr<Expr> NodeCloner::Clone(const Expr &expr) const {
   switch (expr.getKind()) {
-    case NODE_INT:
-      return Visit(static_cast<const IntLiteral &>(expr));
-    case NODE_BINOP:
-      return Visit(static_cast<const BinOperator &>(expr));
-    case NODE_PAREN:
-      return Visit(static_cast<const ParenExpr &>(expr));
-    case NODE_ID:
-      return Clone(static_cast<const IDExpr &>(expr));
-    case NODE_EXPR_STMT:
-    case NODE_ASSIGN:
-      break;
+#define TYPE(NODE, NODEKIND) \
+  case NODEKIND:             \
+    break;
+#define EXPR(NODE, NODEKIND) \
+  case NODEKIND:             \
+    return Visit(static_cast<const NODE &>(expr));
+#include "Nodes.def"
   }
   LANG_UNREACHABLE("Expected an expression");
 }
@@ -197,17 +183,13 @@ int64_t ASTEval::EvalNumeric(const Node &node) {
 
 int64_t ASTEval::DispatchExpr(const Expr &expr) {
   switch (expr.getKind()) {
-    case NODE_INT:
-      return Visit(static_cast<const IntLiteral &>(expr));
-    case NODE_BINOP:
-      return Visit(static_cast<const BinOperator &>(expr));
-    case NODE_PAREN:
-      return Visit(static_cast<const ParenExpr &>(expr));
-    case NODE_ID:
-      return Visit(static_cast<const IDExpr &>(expr));
-    case NODE_EXPR_STMT:
-    case NODE_ASSIGN:
-      break;
+#define TYPE(NODE, NODEKIND) \
+  case NODEKIND:             \
+    break;
+#define EXPR(NODE, NODEKIND) \
+  case NODEKIND:             \
+    return Visit(static_cast<const NODE &>(expr));
+#include "Nodes.def"
   }
   LANG_UNREACHABLE("Expected expression");
 }
@@ -244,15 +226,13 @@ void ASTEval::EvalStmt(const Stmt &stmt) { DispatchStmt(stmt); }
 
 void ASTEval::DispatchStmt(const Stmt &stmt) {
   switch (stmt.getKind()) {
-    case NODE_INT:
-    case NODE_BINOP:
-    case NODE_PAREN:
-    case NODE_ID:
-      break;
-    case NODE_EXPR_STMT:
-      return Visit(static_cast<const ExprStmt &>(stmt));
-    case NODE_ASSIGN:
-      return Visit(static_cast<const Assign &>(stmt));
+#define TYPE(NODE, NODEKIND) \
+  case NODEKIND:             \
+    break;
+#define STMT(NODE, NODEKIND) \
+  case NODEKIND:             \
+    return Visit(static_cast<const NODE &>(stmt));
+#include "Nodes.def"
   }
   LANG_UNREACHABLE("Expected statement");
 }
@@ -263,17 +243,16 @@ void ASTEval::Visit(const ExprStmt &stmt) { /*Nothing to evaluate*/
 void ASTEval::Visit(const Assign &stmt) {
   const AssignableExpr &lhs = stmt.getLHS();
   switch (lhs.getKind()) {
+#define TYPE(NODE, NODEKIND) \
+  case NODEKIND:             \
+    break;
+#define ASSIGNABLE(NODE, NODEKIND)
+#include "Nodes.def"
     case NODE_ID: {
       const IDExpr &id = static_cast<const IDExpr &>(lhs);
       sema_.setID(id.getName(), stmt.getRHS());
       return;
     }
-    case NODE_BINOP:
-    case NODE_PAREN:
-    case NODE_INT:
-    case NODE_EXPR_STMT:
-    case NODE_ASSIGN:
-      break;
   }
   LANG_UNREACHABLE("Expected assignable expression");
 }

@@ -1,0 +1,27 @@
+#ifndef STMT
+#define STMT(NODE, NODEKIND) TYPE(NODE, NODEKIND)
+#endif
+
+#ifndef EXPR
+#define EXPR(NODE, NODEKIND) TYPE(NODE, NODEKIND)
+#endif
+
+#ifndef ASSIGNABLE
+#define ASSIGNABLE(NODE, NODEKIND) EXPR(NODE, NODEKIND)
+#endif
+
+// Expressions
+EXPR(IntLiteral, NODE_INT)
+EXPR(BinOperator, NODE_BINOP)
+EXPR(ParenExpr, NODE_PAREN)
+ASSIGNABLE(IDExpr, NODE_ID)
+
+STMT(ExprStmt, NODE_EXPR_STMT)
+
+// Assignments
+STMT(Assign, NODE_ASSIGN)
+
+#undef STMT
+#undef EXPR
+#undef ASSIGNABLE
+#undef TYPE

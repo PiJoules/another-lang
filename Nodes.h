@@ -10,16 +10,8 @@
 namespace lang {
 
 enum NodeKind {
-  // Expressions
-  NODE_INT,
-  NODE_BINOP,
-  NODE_PAREN,
-  NODE_ID,
-
-  NODE_EXPR_STMT,
-
-  // Assignments
-  NODE_ASSIGN
+#define TYPE(NODE, NODEKIND) NODEKIND,
+#include "Nodes.def"
 };
 
 class Node {
