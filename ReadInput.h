@@ -16,7 +16,10 @@ inline char *readline(char *prompt) {
 // Stubbed out add_history function.
 inline void add_history(char *unused) {}
 #else
+#ifndef __APPLE__
+// This is not defined in OSX.
 #include <editline/history.h>
+#endif
 #include <editline/readline.h>
 #endif
 
