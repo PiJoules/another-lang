@@ -15,7 +15,10 @@ struct ParseFailure {
     LEX_ERROR,
     EXPECTED_BIN_OPERATOR,
     EXPECTED_BIN_OPERAND_TOK,
+    EXPECTED_LPAR,
     EXPECTED_RPAR,
+    EXPECTED_LBRACE,
+    EXPECTED_RBRACE,
     EXPECTED_ASSIGNABLE_EXPR,
     EXPECTED_ASSIGNMENT,
     EXPECTED_STMT_END,
@@ -64,9 +67,18 @@ class Parser {
   // Each of these ParseXXX methods expects a Lex call to succeed.
   std::unique_ptr<IntLiteral> ParseIntLiteral();
   std::unique_ptr<IDExpr> ParseIDExpr();
+  std::unique_ptr<Expr> ParseCallable();
+  std::unique_ptr<Expr> ParseCallableOrCall();
   std::unique_ptr<Expr> ParseBinOperandExpr();
   std::unique_ptr<ParenExpr> ParseParenExpr();
   std::unique_ptr<Expr> ParseMulDivExpr();
+  std::unique_ptr<Function> ParseFunction();
+  std::unique_ptr<Return> ParseReturn();
+
+  // Helper functions for parsing sequences of nodes. These return true on
+  // successfully parsing a sequence.
+  bool ParseIDListOptional(std::vector<std::unique_ptr<IDExpr>> &ids);
+  bool ParseExprListOptional(std::vector<std::unique_ptr<Expr>> &exprs);
 
   // Handle error messages for any LexStatus that is not a success.
   void DiagnoseLexStatus(LexStatus status, Token &tok);

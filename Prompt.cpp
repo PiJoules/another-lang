@@ -28,7 +28,7 @@ void RunPrompt() {
       dumper.Dump(*result);
       std::cerr << std::endl;
 
-      for (const auto &stmt : result->getStmts()) {
+      for (const auto& stmt : result->getStmts()) {
         if (stmt->isExpr()) {
           std::cerr << "Value: " << evaluator.EvalNumeric(*stmt) << std::endl;
         } else if (stmt->getKind() == lang::NODE_EXPR_STMT) {

@@ -2,9 +2,25 @@
 
 set -e
 
-# The main executable
-clang++ -std=c++14 -g -Werror -Wall -fno-rtti -ledit -o lang.out Prompt.cpp Lexer.cpp Parser.cpp Nodes.cpp LangCommon.cpp
+CXX=clang++
+CXXOPTS="-std=c++14 -g -Werror -Wall -fno-rtti"
 
-clang++ -std=c++14 -Werror -Wall -fno-rtti -o TestLexer.out TestLexer.cpp Lexer.cpp LangCommon.cpp -pthread -lgtest
-clang++ -std=c++14 -Werror -Wall -fno-rtti -o TestParser.out TestParser.cpp Parser.cpp Lexer.cpp LangCommon.cpp -pthread -lgtest
-clang++ -std=c++14 -Werror -Wall -fno-rtti -o TestEval.out TestEval.cpp Parser.cpp Lexer.cpp Nodes.cpp LangCommon.cpp -pthread -lgtest
+$CXX $CXXOPTS -c -o Prompt.o Prompt.cpp
+$CXX $CXXOPTS -c -o Lexer.o Lexer.cpp
+$CXX $CXXOPTS -c -o Parser.o Parser.cpp
+$CXX $CXXOPTS -c -o Nodes.o Nodes.cpp
+$CXX $CXXOPTS -c -o LangCommon.o LangCommon.cpp
+
+$CXX $CXXOPTS -c -o TestLexer.o TestLexer.cpp
+$CXX $CXXOPTS -c -o TestParser.o TestParser.cpp
+$CXX $CXXOPTS -c -o TestEval.o TestEval.cpp
+$CXX $CXXOPTS -c -o TestASTDump.o TestASTDump.cpp
+
+# The main executable
+$CXX $CXXOPTS -ledit -o lang.out Prompt.o Lexer.o Parser.o Nodes.o LangCommon.o
+
+# Tests
+$CXX $CXXOPTS -o TestLexer.out TestLexer.o Lexer.o LangCommon.o -pthread -lgtest
+$CXX $CXXOPTS -o TestParser.out TestParser.o Parser.o Lexer.o LangCommon.o -pthread -lgtest
+$CXX $CXXOPTS -o TestEval.out TestEval.o Parser.o Lexer.o Nodes.o LangCommon.o -pthread -lgtest
+$CXX $CXXOPTS -o TestASTDump.out TestASTDump.o Nodes.o LangCommon.o -pthread -lgtest

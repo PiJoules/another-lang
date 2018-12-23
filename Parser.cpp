@@ -51,8 +51,20 @@ void ParseFailure::Dump(std::ostream &out) const {
       out << "Expected a token forming a binary operand expression, but found: "
           << failing_tok.toString() << std::endl;
       return;
+    case EXPECTED_LPAR:
+      out << "Expected an opening '(', but found " << failing_tok.toString()
+          << std::endl;
+      return;
     case EXPECTED_RPAR:
       out << "Expected a closing ')', but found " << failing_tok.toString()
+          << std::endl;
+      return;
+    case EXPECTED_LBRACE:
+      out << "Expected an opening '{', but found " << failing_tok.toString()
+          << std::endl;
+      return;
+    case EXPECTED_RBRACE:
+      out << "Expected a closing '}', but found " << failing_tok.toString()
           << std::endl;
       return;
     case EXPECTED_ASSIGNABLE_EXPR:
@@ -74,7 +86,7 @@ void ParseFailure::Dump(std::ostream &out) const {
 std::unique_ptr<Node> Parser::Parse() { return ParseModule(); }
 
 /**
- * module : stmt+
+ * module : <stmt>+
  */
 std::unique_ptr<Module> Parser::ParseModule() {
   Token tok;
@@ -88,19 +100,25 @@ std::unique_ptr<Module> Parser::ParseModule() {
 
     if (!PeekAndDiagnose(tok)) return nullptr;
   }
-
   return std::make_unique<Module>(std::move(stmts));
 }
 
 /**
  * stmt : <expr> ('=' <expr>)* ';'
+ *      | <function>
+ *      | <return>
  */
 std::unique_ptr<Stmt> Parser::ParseStmt() {
+  Token tok;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+
+  if (tok.kind == TOK_DEF) return ParseFunction();
+  if (tok.kind == TOK_RETURN) return ParseReturn();
+
   auto lhs = ParseExpr();
   if (!lhs) return nullptr;
 
   // '=' or ';'
-  Token tok;
   if (!PeekAndDiagnose(tok)) return nullptr;
   ConsumePeekedToken();
 
@@ -134,6 +152,119 @@ std::unique_ptr<Stmt> Parser::ParseStmt() {
   ConsumePeekedToken();
 
   return stmt;
+}
+
+/**
+ * function : def <ID> '(' <id_list_optional> ')' '{' <stmt>+ '}'
+ */
+std::unique_ptr<Function> Parser::ParseFunction() {
+  Token tok;
+
+  // def
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  assert(tok.kind == TOK_DEF && "Expected 'def' keyword");
+  ConsumePeekedToken();
+
+  // <ID>
+  std::unique_ptr<IDExpr> func_name = ParseIDExpr();
+  if (!func_name) return nullptr;
+
+  // (
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  if (tok.kind != TOK_LPAR) {
+    failure_ = ParseFailure(ParseFailure::EXPECTED_LPAR, tok);
+    return nullptr;
+  }
+  ConsumePeekedToken();
+
+  // <id_list_optional>
+  std::vector<std::unique_ptr<IDExpr>> id_list;
+  if (!ParseIDListOptional(id_list)) return nullptr;
+
+  // ')'
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  if (tok.kind != TOK_RPAR) {
+    failure_ = ParseFailure(ParseFailure::EXPECTED_RPAR, tok);
+    return nullptr;
+  }
+  ConsumePeekedToken();
+
+  // '{'
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  if (tok.kind != TOK_LBRACE) {
+    failure_ = ParseFailure(ParseFailure::EXPECTED_LBRACE, tok);
+    return nullptr;
+  }
+  ConsumePeekedToken();
+
+  // <stmt>+
+  std::vector<std::unique_ptr<Stmt>> body;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  while (tok.kind != TOK_RBRACE) {
+    auto stmt = ParseStmt();
+    if (!stmt) return nullptr;
+    body.push_back(std::move(stmt));
+
+    if (!PeekAndDiagnose(tok)) return nullptr;
+  }
+
+  // '}'
+  ConsumePeekedToken();
+
+  return std::make_unique<Function>(func_name->getName(), std::move(id_list),
+                                    std::move(body));
+}
+
+/**
+ * return : 'return' <expr> ';'
+ */
+std::unique_ptr<Return> Parser::ParseReturn() {
+  Token tok;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  assert(tok.kind == TOK_RETURN && "Expected 'return' keyword");
+  ConsumePeekedToken();
+
+  std::unique_ptr<Expr> expr = ParseExpr();
+  if (!expr) return nullptr;
+
+  std::unique_ptr<Return> ret = std::make_unique<Return>(std::move(expr));
+
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  if (tok.kind != TOK_SEMICOL) {
+    failure_ = ParseFailure(ParseFailure::EXPECTED_STMT_END, tok);
+    return nullptr;
+  }
+  ConsumePeekedToken();
+
+  return ret;
+}
+
+/**
+ * <id_list_optional> : <id_expr> (',' <id_expr>)*
+ *                    | none
+ */
+bool Parser::ParseIDListOptional(std::vector<std::unique_ptr<IDExpr>> &ids) {
+  Token tok;
+  if (!PeekAndDiagnose(tok)) return false;
+
+  // Nothing to parse
+  if (tok.kind != TOK_ID) return true;
+
+  auto id_expr = ParseIDExpr();
+  if (!id_expr) return false;
+  ids.push_back(std::move(id_expr));
+
+  if (!PeekAndDiagnose(tok)) return false;
+  while (tok.kind == TOK_COMMA) {
+    ConsumePeekedToken();
+
+    auto other_id_expr = ParseIDExpr();
+    if (!other_id_expr) return false;
+    ids.push_back(std::move(other_id_expr));
+
+    if (!PeekAndDiagnose(tok)) return false;
+  }
+  return true;
 }
 
 /**
@@ -225,7 +356,8 @@ std::unique_ptr<IDExpr> Parser::ParseIDExpr() {
  * Parse an expression that makes up a operand in a binary operation.
  *
  * bin_operand_expr : <number>
- *                  | <ID>
+ *                  | <callable_or_call>
+ *                  | <id_or_call>
  *                  | <paren_expr>
  */
 std::unique_ptr<Expr> Parser::ParseBinOperandExpr() {
@@ -236,9 +368,8 @@ std::unique_ptr<Expr> Parser::ParseBinOperandExpr() {
     case TOK_INT:
       return ParseIntLiteral();
     case TOK_ID:
-      return ParseIDExpr();
     case TOK_LPAR:
-      return ParseParenExpr();
+      return ParseCallableOrCall();
     default:
       break;
   }
@@ -246,6 +377,73 @@ std::unique_ptr<Expr> Parser::ParseBinOperandExpr() {
   // Parser error from unexpected token.
   failure_ = ParseFailure(ParseFailure::EXPECTED_BIN_OPERAND_TOK, tok);
   return nullptr;
+}
+
+/**
+ * callable_or_call : <callable> ('(' <expr_list_optional> ')'?
+ */
+std::unique_ptr<Expr> Parser::ParseCallableOrCall() {
+  auto callable = ParseCallable();
+  if (!callable) return nullptr;
+
+  Token tok;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+
+  if (tok.kind != TOK_LPAR) return callable;
+
+  // '('
+  ConsumePeekedToken();
+
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  if (tok.kind == TOK_RPAR) {
+    // No args
+    ConsumePeekedToken();
+    return std::make_unique<Call>(std::move(callable));
+  }
+
+  auto arg = ParseExpr();
+  if (!arg) return nullptr;
+  std::vector<std::unique_ptr<Expr>> args;
+  args.push_back(std::move(arg));
+
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  while (tok.kind == TOK_COMMA) {
+    ConsumePeekedToken();
+
+    auto other_arg = ParseExpr();
+    if (!other_arg) return nullptr;
+    args.push_back(std::move(other_arg));
+
+    if (!PeekAndDiagnose(tok)) return nullptr;
+  }
+
+  // ')'
+  if (tok.kind != TOK_RPAR) {
+    failure_ = ParseFailure(ParseFailure::EXPECTED_RPAR, tok);
+    return nullptr;
+  }
+  ConsumePeekedToken();
+
+  return std::make_unique<Call>(std::move(callable), std::move(args));
+}
+
+/**
+ * callable : <id_expr>
+ *          | <paren_expr>
+ */
+std::unique_ptr<Expr> Parser::ParseCallable() {
+  Token tok;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+
+  switch (tok.kind) {
+    case TOK_ID:
+      return ParseIDExpr();
+    case TOK_LPAR:
+      return ParseParenExpr();
+    default:
+      LANG_UNREACHABLE("Expected callable expression");
+      return nullptr;
+  }
 }
 
 /**

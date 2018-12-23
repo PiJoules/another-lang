@@ -12,9 +12,15 @@ enum TokenKind {
   TOK_INT,
   TOK_ID,
 
+  // Keywords
+  TOK_DEF,     // def
+  TOK_RETURN,  // return
+
   // Container characters
-  TOK_LPAR,
-  TOK_RPAR,
+  TOK_LPAR,    // (
+  TOK_RPAR,    // )
+  TOK_LBRACE,  // {
+  TOK_RBRACE,  // }
 
   // Binary operators
   TOK_PLUS,
@@ -26,6 +32,8 @@ enum TokenKind {
   TOK_ASSIGN,
 
   TOK_SEMICOL,
+  TOK_COMMA,
+
   TOK_END,
   TOK_BAD
 };
@@ -65,7 +73,7 @@ class Lexer {
 
   // This method assumes the first character in the stream is an alphabetic
   // character.
-  LexStatus LexID(Token &result);
+  LexStatus LexIDOrKeyword(Token &result);
 
   // Set a token consisting of a single character and advance the token
   // location. This also advances the stream. This assumes the character is not
