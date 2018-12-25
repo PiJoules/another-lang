@@ -1,3 +1,3 @@
 #!/bin/bash
 
-clang-format -style=Google -i *.cpp *.h
+clang-format -style=Google -i lib/*.cpp include/*.h

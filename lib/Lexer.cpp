@@ -16,6 +16,10 @@ std::string TokenKindToString(TokenKind kind) {
       return "TOK_DEF";
     case TOK_RETURN:
       return "TOK_RETURN";
+    case TOK_IF:
+      return "TOK_IF";
+    case TOK_ELSE:
+      return "TOK_ELSE";
     case TOK_LPAR:
       return "TOK_LPAR";
     case TOK_RPAR:
@@ -190,6 +194,10 @@ LexStatus Lexer::LexIDOrKeyword(Token &result) {
     result.kind = TOK_DEF;
   else if (str == "return")
     result.kind = TOK_RETURN;
+  else if (str == "if")
+    result.kind = TOK_IF;
+  else if (str == "else")
+    result.kind = TOK_ELSE;
   else
     result.kind = TOK_ID;
 

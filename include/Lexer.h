@@ -15,6 +15,8 @@ enum TokenKind {
   // Keywords
   TOK_DEF,     // def
   TOK_RETURN,  // return
+  TOK_IF,      // if
+  TOK_ELSE,    // else
 
   // Container characters
   TOK_LPAR,    // (

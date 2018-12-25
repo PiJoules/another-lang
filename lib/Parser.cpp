@@ -107,6 +107,7 @@ std::unique_ptr<Module> Parser::ParseModule() {
  * stmt : <expr> ('=' <expr>)* ';'
  *      | <function>
  *      | <return>
+ *      | <if>
  */
 std::unique_ptr<Stmt> Parser::ParseStmt() {
   Token tok;
@@ -114,6 +115,7 @@ std::unique_ptr<Stmt> Parser::ParseStmt() {
 
   if (tok.kind == TOK_DEF) return ParseFunction();
   if (tok.kind == TOK_RETURN) return ParseReturn();
+  if (tok.kind == TOK_IF) return ParseIf();
 
   auto lhs = ParseExpr();
   if (!lhs) return nullptr;
@@ -152,6 +154,73 @@ std::unique_ptr<Stmt> Parser::ParseStmt() {
   ConsumePeekedToken();
 
   return stmt;
+}
+
+/**
+ * if : 'if' <expr> '{' <stmt>+ '}' ('else' '{' <stmt>+ '}')?
+ */
+std::unique_ptr<If> Parser::ParseIf() {
+  Token tok;
+
+  // if
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  assert(tok.kind == TOK_IF && "Expected 'if' keyword");
+  ConsumePeekedToken();
+
+  // <expr>
+  std::unique_ptr<Expr> expr = ParseExpr();
+
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  if (tok.kind != TOK_LBRACE) {
+    failure_ = ParseFailure(ParseFailure::EXPECTED_LBRACE, tok);
+    return nullptr;
+  }
+  ConsumePeekedToken();
+
+  // <stmt>+
+  std::vector<std::unique_ptr<Stmt>> if_body;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  while (tok.kind != TOK_RBRACE) {
+    auto stmt = ParseStmt();
+    if (!stmt) return nullptr;
+    if_body.push_back(std::move(stmt));
+
+    if (!PeekAndDiagnose(tok)) return nullptr;
+  }
+
+  // '}'
+  ConsumePeekedToken();
+
+  // else
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  if (tok.kind != TOK_ELSE)
+    return std::make_unique<If>(std::move(expr), std::move(if_body));
+  ConsumePeekedToken();
+
+  // '{'
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  if (tok.kind != TOK_LBRACE) {
+    failure_ = ParseFailure(ParseFailure::EXPECTED_LBRACE, tok);
+    return nullptr;
+  }
+  ConsumePeekedToken();
+
+  // <stmt>+
+  std::vector<std::unique_ptr<Stmt>> else_body;
+  if (!PeekAndDiagnose(tok)) return nullptr;
+  while (tok.kind != TOK_RBRACE) {
+    auto stmt = ParseStmt();
+    if (!stmt) return nullptr;
+    else_body.push_back(std::move(stmt));
+
+    if (!PeekAndDiagnose(tok)) return nullptr;
+  }
+
+  // '}'
+  ConsumePeekedToken();
+
+  return std::make_unique<If>(std::move(expr), std::move(if_body),
+                              std::move(else_body));
 }
 
 /**

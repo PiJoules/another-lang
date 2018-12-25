@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "ASTEval.h"
 #include "Parser.h"
 
 using namespace lang;
@@ -113,6 +114,84 @@ TEST_F(EvalTest, FunctionText) {
   expr = Parser(input_).ParseExpr();
   ASSERT_NE(expr, nullptr);
   ASSERT_EQ(evaluator.EvalNumeric(*expr), 7);
+  ASSERT_FALSE(evaluator.Failed());
+}
+
+TEST_F(EvalTest, IfStmt) {
+  // def func(arg):
+  //   if arg:
+  //     return arg 
+  //   else:
+  //     return 4
+  // func(3)
+  // func(0)
+  auto arg = std::make_unique<IDExpr>("arg");
+  auto arg2 = CloneNode<IDExpr>(*arg);
+  std::vector<std::unique_ptr<IDExpr>> args;
+  args.push_back(std::move(arg));
+
+  auto ret = std::make_unique<Return>(std::move(arg2));
+  std::vector<std::unique_ptr<Stmt>> if_body;
+  if_body.push_back(std::move(ret));
+
+  auto i = std::make_unique<IntLiteral>(4);
+  ret = std::make_unique<Return>(std::move(i));
+  std::vector<std::unique_ptr<Stmt>> else_body;
+  else_body.push_back(std::move(ret));
+
+  auto cond = std::make_unique<IDExpr>("arg");
+  auto if_stmt = std::make_unique<If>(std::move(cond), std::move(if_body),
+                                      std::move(else_body));
+  std::vector<std::unique_ptr<Stmt>> body;
+  body.push_back(std::move(if_stmt));
+
+  auto func =
+      std::make_unique<Function>("func", std::move(args), std::move(body));
+  ASSERT_NE(func, nullptr);
+
+  ASTEval evaluator;
+  evaluator.EvalStmt(*func);
+  ASSERT_FALSE(evaluator.Failed());
+
+  auto i2 = std::make_unique<IntLiteral>(3);
+  auto idexpr = std::make_unique<IDExpr>("func");
+  std::vector<std::unique_ptr<Expr>> call_args;
+  call_args.push_back(std::move(i2));
+  auto call = std::make_unique<Call>(std::move(idexpr), std::move(call_args));
+  ASSERT_EQ(evaluator.EvalNumeric(*call), 3);
+  ASSERT_FALSE(evaluator.Failed());
+
+  i2 = std::make_unique<IntLiteral>(0);
+  idexpr = std::make_unique<IDExpr>("func");
+  std::vector<std::unique_ptr<Expr>> call_args2;
+  call_args2.push_back(std::move(i2));
+  call = std::make_unique<Call>(std::move(idexpr), std::move(call_args2));
+  ASSERT_EQ(evaluator.EvalNumeric(*call), 4);
+  ASSERT_FALSE(evaluator.Failed());
+}
+
+TEST_F(EvalTest, IfText) {
+  input_ << "def func(a) { if (a) { return a; } else { return 4; } }";
+  Parser parser(input_);
+  auto stmt = parser.ParseStmt();
+  ASSERT_NE(stmt, nullptr);
+
+  ASTEval evaluator;
+  evaluator.EvalStmt(*stmt);
+  ASSERT_FALSE(evaluator.Failed());
+
+  input_.clear();
+  input_ << "func(3)";
+  auto expr = Parser(input_).ParseExpr();
+  ASSERT_NE(expr, nullptr);
+  ASSERT_EQ(evaluator.EvalNumeric(*expr), 3);
+  ASSERT_FALSE(evaluator.Failed());
+
+  input_.clear();
+  input_ << "func(0)";
+  expr = Parser(input_).ParseExpr();
+  ASSERT_NE(expr, nullptr);
+  ASSERT_EQ(evaluator.EvalNumeric(*expr), 4);
   ASSERT_FALSE(evaluator.Failed());
 }
 

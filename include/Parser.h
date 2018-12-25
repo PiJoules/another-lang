@@ -74,6 +74,7 @@ class Parser {
   std::unique_ptr<Expr> ParseMulDivExpr();
   std::unique_ptr<Function> ParseFunction();
   std::unique_ptr<Return> ParseReturn();
+  std::unique_ptr<If> ParseIf();
 
   // Helper functions for parsing sequences of nodes. These return true on
   // successfully parsing a sequence.

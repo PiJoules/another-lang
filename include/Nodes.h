@@ -136,6 +136,29 @@ class ExprStmt : public Stmt {
   std::unique_ptr<Expr> expr_;
 };
 
+class If : public Stmt {
+ public:
+  If(std::unique_ptr<Expr> cond, std::vector<std::unique_ptr<Stmt>> body,
+     std::vector<std::unique_ptr<Stmt>> else_stmts)
+      : cond_(std::move(cond)),
+        body_(std::move(body)),
+        else_stmts_(std::move(else_stmts)) {}
+  If(std::unique_ptr<Expr> cond, std::vector<std::unique_ptr<Stmt>> body)
+      : cond_(std::move(cond)), body_(std::move(body)) {}
+
+  NodeKind getKind() const override { return NODE_IF; }
+  const Expr &getCond() const { return *cond_; }
+  const std::vector<std::unique_ptr<Stmt>> &getBody() const { return body_; }
+  const std::vector<std::unique_ptr<Stmt>> &getElseStmts() const {
+    return else_stmts_;
+  }
+
+ private:
+  std::unique_ptr<Expr> cond_;
+  std::vector<std::unique_ptr<Stmt>> body_;
+  std::vector<std::unique_ptr<Stmt>> else_stmts_;
+};
+
 class Function : public Stmt {
  public:
   Function(const std::string &name, std::vector<std::unique_ptr<IDExpr>> args,
@@ -248,84 +271,10 @@ std::unique_ptr<NodeType> CloneNode(const Node &node) {
   return NodeCloner().CloneAs<NodeType>(node);
 }
 
-/**
- * This class performs any semantic analysis and AST transformations on ASTs.
- */
-class SemanticAnalyzer {
- public:
-  SemanticAnalyzer() {
-    id_tables_.push_back({});
-    func_tables_.push_back({});
-  }
-
-  void setID(const std::string &id, const Expr &expr) {
-    id_tables_.back()[id] = cloner_.Clone(expr);
-  }
-
-  const Expr *getID(const std::string &id) const {
-    for (auto it = id_tables_.rbegin(); it != id_tables_.rend(); ++it) {
-      auto &id_table_ = *it;
-      auto found_expr = id_table_.find(id);
-      if (found_expr != id_table_.end()) return found_expr->second.get();
-    }
-    return nullptr;
-  }
-
-  void setFunc(const std::string &name, const Function &func) {
-    func_tables_.back()[name] = cloner_.Clone(func);
-  }
-
-  const Function *getFunc(const std::string &name) const {
-    for (auto it = func_tables_.rbegin(); it != func_tables_.rend(); ++it) {
-      auto &func_table_ = *it;
-      auto found_func = func_table_.find(name);
-      if (found_func != func_table_.end()) return found_func->second.get();
-    }
-    return nullptr;
-  }
-
-  void EnterScope() {
-    id_tables_.push_back({});
-    func_tables_.push_back({});
-  }
-
-  void ExitScope() {
-    id_tables_.pop_back();
-    func_tables_.pop_back();
-  }
-
- private:
-  std::vector<std::unordered_map<std::string, std::unique_ptr<Expr>>>
-      id_tables_;
-  std::vector<std::unordered_map<std::string, std::unique_ptr<Function>>>
-      func_tables_;
-  NodeCloner cloner_;
-};
-
-class ASTEval {
- public:
-  int64_t EvalNumeric(const Expr &expr);
-  int64_t EvalNumeric(const Node &node);
-  void EvalStmt(const Stmt &stmt);
-
-  bool Failed() const { return failed_; }
-  void ResetFail() { failed_ = false; }
-
- private:
-#define NODE(NAME, KIND)
-#define EXPR(NAME, KIND) int64_t Visit(const NAME &expr);
-#include "Nodes.def"
-
-#define NODE(NAME, KIND)
-#define STMT(NAME, KIND) void Visit(const NAME &stmt);
-#include "Nodes.def"
-
-  int64_t EvalFuncBody(const std::vector<std::unique_ptr<Stmt>> &body);
-  int64_t EvalReturnStmt(const Return &ret);
-
-  SemanticAnalyzer sema_;
-  bool failed_ = false;
-};
+template <class NodeType>
+const NodeType &GetNodeAs(const Node &node) {
+  return *static_cast<const NodeType *>(&node);
+}
 
 }  // namespace lang
 
